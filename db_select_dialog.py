@@ -1,8 +1,15 @@
 import Tkinter as tk
 import ttk
+import tkSimpleDialog
 import os
 from sqlalchemy import create_engine
 from db_sync_app import App
+
+#mysql://root:pass@192.168.0.23/hServices
+#TODO#
+#print out for test
+#url checking
+#settings file
 
 class DB_Select_Dialog(tk.Toplevel):
     
@@ -42,9 +49,9 @@ class DB_Select_Dialog(tk.Toplevel):
         self.saved_constring_frame.rowconfigure(1, weight=1)
         self.saved_constring_frame.columnconfigure(1, weight=1)
         self.con_label = ttk.Label(self.saved_constring_frame, text="Saved Connections") 
-        self.saved_connections_list = tk.Listbox(self.saved_constring_frame) 
-        self.save_button = ttk.Button(self.saved_constring_frame, text="Save")
-        self.delete_button = ttk.Button(self.saved_constring_frame, text="Delete")        
+        self.saved_connections_list = tk.Listbox(self.saved_constring_frame, selectmode=tk.SINGLE) 
+        self.save_button = ttk.Button(self.saved_constring_frame, text="Save", command=self.on_save_connection_string)
+        self.delete_button = ttk.Button(self.saved_constring_frame, text="Delete", command=self.on_delete_connection_string)        
         
         self.tns_radio = ttk.Radiobutton(master, text="TNS NAMES", variable=self.radio_var, value=0, command=self.on_select_radio) 
         self.tns_frame = ttk.Frame(master)
@@ -52,7 +59,7 @@ class DB_Select_Dialog(tk.Toplevel):
         self.username_label = ttk.Label(self.tns_frame, text="User Name: ")  
         self.pass_label = ttk.Label(self.tns_frame, text="Password: ")
         self.user_name_entry = ttk.Entry(self.tns_frame)
-        self.password_entry = ttk.Entry(self.tns_frame)
+        self.password_entry = ttk.Entry(self.tns_frame, show="*")
         
         self.constring_radio = ttk.Radiobutton(master, text="Connection String", variable=self.radio_var, value=1, command=self.on_select_radio)
         self.constring_entry = ttk.Entry(master)
@@ -63,6 +70,7 @@ class DB_Select_Dialog(tk.Toplevel):
         self.cancel_button = ttk.Button(self.button_frame, text="Cancel", command = self.cancel)
         
         self.tns_radio.invoke()
+        self.saved_connections_list.bind("<Double-1>", self.on_list_double_click)
         master.rowconfigure(4, weight=1)
         master.columnconfigure(0, weight=1)
         indent_pad = 25
@@ -108,6 +116,42 @@ class DB_Select_Dialog(tk.Toplevel):
             self.password_entry.configure(state="disabled")
             self.constring_entry.configure(state="active")
     
+    def on_save_connection_string(self, event=None):
+        con_string,_,_ = self.parse_connection_string()
+        self.saved_connections_list.insert(0,con_string)
+        
+    def on_delete_connection_string(self, event=None):
+        if self.saved_connections_list.curselection():
+            self.saved_connections_list.delete(self.saved_connections_list.curselection())
+        
+    def on_list_double_click(self, event=None):
+        passwrd = tkSimpleDialog.askstring("Password", "Enter Password: ", show='*')
+        if passwrd is not None:
+            con_string = self.saved_connections_list.get(tk.ACTIVE).replace("*****", passwrd)
+            self.constring_radio.invoke()
+            self.constring_entry.delete(0, tk.END)
+            self.constring_entry.insert(0, con_string)
+        
+        
+    def parse_connection_string(self):
+        con_string = ""
+        user_name = ""
+        password = ""
+        if self.radio_var.get() == 0:
+            user_name = self.user_name_entry.get()
+            password = self.password_entry.get()
+            con_string = "oracle+cx_oracle://" + user_name + ":" + "*****" + "@" + self.tns_select_combo.get()
+        else:
+            con_string = self.constring_entry.get()
+            con_parts = con_string.split(":")
+            
+            user_name = con_parts[1][2:]
+            password = con_parts[2][:con_parts[2].find("@")]
+            
+            con_parts[2] = "*****" + con_parts[2][con_parts[2].find("@"):]
+            con_string = ":".join(con_parts)
+            
+        return con_string, user_name, password
         
     def ok(self, event=None):
         if not self.validate():
@@ -124,11 +168,12 @@ class DB_Select_Dialog(tk.Toplevel):
         self.parent.focus_set()
         self.destroy()
 
-    def validate(self):
-        engine = create_engine(self.constring_entry.get())
+    def validate(self):    
+        con_string, user_name, password = self.parse_connection_string()
+        con_string = con_string.replace("*****", password)
+        engine = create_engine(con_string)
         return engine.connect()
-        
-
 
     def apply(self):
-        self.result = self.constring_entry.get()
+        con_string, user_name, passwrd = self.parse_connection_string()
+        self.result = con_string.replace("*****", passwrd)

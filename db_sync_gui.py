@@ -8,7 +8,6 @@ class GUI(ttk.Frame):
     def __init__(self, root_window):
         ttk.Frame.__init__(self,root_window)
         connection_dialog = DB_Select_Dialog(root_window)
-        print connection_dialog.result
         self.app = App(connection_dialog.result)
         self.master = root_window
         self.master.minsize(900,500)

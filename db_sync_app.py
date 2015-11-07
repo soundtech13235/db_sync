@@ -2,18 +2,16 @@ import sqlalchemy as sql
 import os
 
 class App:
-    def __init__(self, db_connection_string="mysql://root:pass@192.168.0.23:3306/hServices"):
+    def __init__(self, db_connection_string):
         self.engine = sql.create_engine(db_connection_string)
         self.metadata = sql.MetaData()
         
     def get_ddl(self, table_name):
         return sql.schema.CreateTable(sql.Table(table_name, self.metadata, autoload=True, autoload_with=self.engine ), bind=self.engine)
-        #return "NONE"
     
     def get_table_objects(self):
         insp = sql.inspect(self.engine)
         return insp.get_table_names()
-        #return "NONE"
         
     @staticmethod
     def get_tns_names():
