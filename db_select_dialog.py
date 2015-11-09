@@ -2,19 +2,16 @@ import Tkinter as tk
 import ttk
 import tkSimpleDialog
 import os
-from sqlalchemy import create_engine
+import sqlalchemy as sql
 from db_sync_app import App
 
 #mysql://root:pass@192.168.0.23/hServices
 #TODO#
-#print out for test
-#url checking
 #settings file
 
 class DB_Select_Dialog(tk.Toplevel):
     
     def __init__(self, parent, title = None):
-
         tk.Toplevel.__init__(self, parent)
         self.transient(parent)
         self.rowconfigure(0, weight=1)
@@ -24,6 +21,7 @@ class DB_Select_Dialog(tk.Toplevel):
             self.title(title)
         self.parent = parent
         self.result = None
+        self.pass_replace = "*****"
         body = ttk.Frame(self)
         self.initial_focus = self.construct_body(body)
         body.grid(row=0, column=0, padx=5, pady=5, sticky=tk.N+tk.S+tk.E+tk.W)
@@ -64,6 +62,9 @@ class DB_Select_Dialog(tk.Toplevel):
         self.constring_radio = ttk.Radiobutton(master, text="Connection String", variable=self.radio_var, value=1, command=self.on_select_radio)
         self.constring_entry = ttk.Entry(master)
         
+        self.log_window = ttk.Treeview(master, columns=("Log"))
+        self.log_window.heading("#0", text="Log", anchor='w')
+        
         self.button_frame = ttk.Frame(master)
         self.ok_button = ttk.Button(self.button_frame, text="OK", command=self.ok)
         self.test_button = ttk.Button(self.button_frame, text="Test", command=self.validate)
@@ -100,13 +101,17 @@ class DB_Select_Dialog(tk.Toplevel):
         self.constring_radio.       grid(row=2, column=1, padx=x_pad, pady=y_pad, sticky=tk.N+tk.W)
         self.constring_entry.       grid(row=3, column=1, padx=x_pad * 2, pady=y_pad, sticky=tk.N+tk.E+tk.W)
         self.button_frame.          grid(row=4, column=1, sticky=tk.N+tk.E)
+        self.log_window.              grid(row=5, column=0, columnspan=2, padx=x_pad, pady=y_pad, sticky=tk.N+tk.E+tk.W)
         self.saved_constring_frame. grid(row=0, column=0, rowspan=5 ,sticky=tk.N+tk.S+tk.E+tk.W)
         
-        
+    def insert_log(self, text):
+        if len(self.log_window.get_children("")) >= 10:
+            self.log_window.delete(self.log_window.get_children("")[0])
+        self.log_window.insert("", index="end", text=text)
 
     def on_select_radio(self, event=None):
         if self.radio_var.get() == 0:
-            self.tns_select_combo.configure(state="active")
+            self.tns_select_combo.configure(state="readonly")
             self.user_name_entry.configure(state="active")
             self.password_entry.configure(state="active")
             self.constring_entry.configure(state="disabled")
@@ -117,7 +122,7 @@ class DB_Select_Dialog(tk.Toplevel):
             self.constring_entry.configure(state="active")
     
     def on_save_connection_string(self, event=None):
-        con_string,_,_ = self.parse_connection_string()
+        con_string,_ = self.parse_connection_string()
         self.saved_connections_list.insert(0,con_string)
         
     def on_delete_connection_string(self, event=None):
@@ -125,39 +130,35 @@ class DB_Select_Dialog(tk.Toplevel):
             self.saved_connections_list.delete(self.saved_connections_list.curselection())
         
     def on_list_double_click(self, event=None):
-        passwrd = tkSimpleDialog.askstring("Password", "Enter Password: ", show='*')
-        if passwrd is not None:
-            con_string = self.saved_connections_list.get(tk.ACTIVE).replace("*****", passwrd)
+        if self.saved_connections_list.curselection():
+            con_string = self.saved_connections_list.get(self.saved_connections_list.curselection())
             self.constring_radio.invoke()
             self.constring_entry.delete(0, tk.END)
             self.constring_entry.insert(0, con_string)
         
-        
     def parse_connection_string(self):
         con_string = ""
-        user_name = ""
         password = ""
         if self.radio_var.get() == 0:
             user_name = self.user_name_entry.get()
             password = self.password_entry.get()
-            con_string = "oracle+cx_oracle://" + user_name + ":" + "*****" + "@" + self.tns_select_combo.get()
+            con_string = "oracle://" + user_name + ":" + self.pass_replace + "@" + self.tns_select_combo.get()
         else:
             con_string = self.constring_entry.get()
             con_parts = con_string.split(":")
-            
-            user_name = con_parts[1][2:]
             password = con_parts[2][:con_parts[2].find("@")]
             
-            con_parts[2] = "*****" + con_parts[2][con_parts[2].find("@"):]
+            if password == self.pass_replace:
+                password = tkSimpleDialog.askstring("Password", "Enter Password: ", show='*')
+            con_parts[2] = self.pass_replace + con_parts[2][con_parts[2].find("@"):]
             con_string = ":".join(con_parts)
-            
-        return con_string, user_name, password
+        con_url = sql.engine.url.make_url(con_string)
+        return (con_url, password)
         
     def ok(self, event=None):
         if not self.validate():
             self.initial_focus.focus_set() # put focus back
             return
-            
         self.withdraw()
         self.update_idletasks()
         self.apply()
@@ -169,11 +170,24 @@ class DB_Select_Dialog(tk.Toplevel):
         self.destroy()
 
     def validate(self):    
-        con_string, user_name, password = self.parse_connection_string()
-        con_string = con_string.replace("*****", password)
-        engine = create_engine(con_string)
-        return engine.connect()
+        self.insert_log("Parsing Connection String")
+        try:
+            con_url, password = self.parse_connection_string()
+            con_url.password = password
+        except:
+            self.insert_log("Error Parsing Connection string")
+            retval = 0
+        else:
+            self.insert_log("Connecting...")
+            try:
+                engine = sql.create_engine(con_url, pool_timeout=5)
+                retval = engine.connect()
+                self.insert_log("Passed.")
+            except BaseException as e:
+                self.insert_log(e)
+                retval = 0
+        return retval
 
     def apply(self):
-        con_string, user_name, passwrd = self.parse_connection_string()
-        self.result = con_string.replace("*****", passwrd)
+        con_url, password = self.parse_connection_string()
+        self.result = con_url.password = password
