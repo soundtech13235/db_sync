@@ -7,11 +7,11 @@ from db_sync_app import App
 
 #mysql://root:pass@192.168.0.23/hServices
 #TODO#
-#settings file
+
 
 class DB_Select_Dialog(tk.Toplevel):
     
-    def __init__(self, parent, title = None):
+    def __init__(self, parent, config, title = None):
         tk.Toplevel.__init__(self, parent)
         self.transient(parent)
         self.rowconfigure(0, weight=1)
@@ -20,6 +20,7 @@ class DB_Select_Dialog(tk.Toplevel):
         if title:
             self.title(title)
         self.parent = parent
+        self.config = config
         self.result = None
         self.pass_replace = "*****"
         body = ttk.Frame(self)
@@ -48,6 +49,7 @@ class DB_Select_Dialog(tk.Toplevel):
         self.saved_constring_frame.columnconfigure(1, weight=1)
         self.con_label = ttk.Label(self.saved_constring_frame, text="Saved Connections") 
         self.saved_connections_list = tk.Listbox(self.saved_constring_frame, selectmode=tk.SINGLE) 
+        self.load_config(self.saved_connections_list)
         self.save_button = ttk.Button(self.saved_constring_frame, text="Save", command=self.on_save_connection_string)
         self.delete_button = ttk.Button(self.saved_constring_frame, text="Delete", command=self.on_delete_connection_string)        
         
@@ -101,14 +103,20 @@ class DB_Select_Dialog(tk.Toplevel):
         self.constring_radio.       grid(row=2, column=1, padx=x_pad, pady=y_pad, sticky=tk.N+tk.W)
         self.constring_entry.       grid(row=3, column=1, padx=x_pad * 2, pady=y_pad, sticky=tk.N+tk.E+tk.W)
         self.button_frame.          grid(row=4, column=1, sticky=tk.N+tk.E)
-        self.log_window.              grid(row=5, column=0, columnspan=2, padx=x_pad, pady=y_pad, sticky=tk.N+tk.E+tk.W)
+        self.log_window.            grid(row=5, column=0, columnspan=2, padx=x_pad, pady=y_pad, sticky=tk.N+tk.E+tk.W)
         self.saved_constring_frame. grid(row=0, column=0, rowspan=5 ,sticky=tk.N+tk.S+tk.E+tk.W)
         
     def insert_log(self, text):
         if len(self.log_window.get_children("")) >= 10:
             self.log_window.delete(self.log_window.get_children("")[0])
         self.log_window.insert("", index="end", text=text)
-
+    
+    def load_config(self, list_box):
+        connections = self.config.get("connections", "saved").split(';')
+        for connection in connections:
+            if connection != "":
+                list_box.insert(tk.END, connection)
+            
     def on_select_radio(self, event=None):
         if self.radio_var.get() == 0:
             self.tns_select_combo.configure(state="readonly")
@@ -123,12 +131,18 @@ class DB_Select_Dialog(tk.Toplevel):
     
     def on_save_connection_string(self, event=None):
         con_string,_ = self.parse_connection_string()
-        self.saved_connections_list.insert(0,con_string)
+        self.saved_connections_list.insert(0, con_string.__str__())
+        connections = self.config.get("connections", "saved").strip(';').split(';')
+        connections.insert(0, con_string.__str__())
+        self.config.set("connections", "saved", ';'.join(connections))
         
     def on_delete_connection_string(self, event=None):
         if self.saved_connections_list.curselection():
+            connections = self.config.get("connections", "saved").strip(';').split(';')
+            connections.pop(self.saved_connections_list.curselection()[0])
+            self.config.set("connections", "saved", ';'.join(connections))
             self.saved_connections_list.delete(self.saved_connections_list.curselection())
-        
+            
     def on_list_double_click(self, event=None):
         if self.saved_connections_list.curselection():
             con_string = self.saved_connections_list.get(self.saved_connections_list.curselection())
