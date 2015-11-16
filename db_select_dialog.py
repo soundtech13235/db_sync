@@ -21,6 +21,7 @@ class DB_Select_Dialog(tk.Toplevel):
             self.title(title)
         self.parent = parent
         self.config = config
+        self.password=""
         self.result = None
         self.pass_replace = "*****"
         body = ttk.Frame(self)
@@ -162,8 +163,6 @@ class DB_Select_Dialog(tk.Toplevel):
             con_parts = con_string.split(":")
             password = con_parts[2][:con_parts[2].find("@")]
             
-            if password == self.pass_replace:
-                password = tkSimpleDialog.askstring("Password", "Enter Password: ", show='*')
             con_parts[2] = self.pass_replace + con_parts[2][con_parts[2].find("@"):]
             con_string = ":".join(con_parts)
         con_url = sql.engine.url.make_url(con_string)
@@ -187,7 +186,11 @@ class DB_Select_Dialog(tk.Toplevel):
         self.insert_log("Parsing Connection String")
         try:
             con_url, password = self.parse_connection_string()
-            con_url.password = password
+            if password == self.pass_replace:
+                self.password = tkSimpleDialog.askstring("Password", "Enter Password: ", show='*')
+            else:
+                self.password = password
+            con_url.password = self.password
         except:
             self.insert_log("Error Parsing Connection string")
             retval = 0
@@ -204,4 +207,5 @@ class DB_Select_Dialog(tk.Toplevel):
 
     def apply(self):
         con_url, password = self.parse_connection_string()
-        self.result = con_url.password = password
+        con_url.password = self.password
+        self.result = con_url

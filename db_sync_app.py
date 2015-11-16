@@ -8,11 +8,10 @@ class App:
             self.metadata = sql.MetaData()
         
     def get_ddl(self, table_name):
-        return "n0ne"
-        return sql.schema.CreateTable(sql.Table(table_name, self.metadata, autoload=True, autoload_with=self.engine ), bind=self.engine)
+        table = sql.schema.CreateTable(sql.Table(table_name, self.metadata, autoload=True, autoload_with=self.engine ), bind=self.engine)
+        print self.metadata
         
     def get_table_objects(self):
-        return "none"
         insp = sql.inspect(self.engine)
         return insp.get_table_names()
         

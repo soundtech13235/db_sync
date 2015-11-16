@@ -15,13 +15,23 @@ class GUI(ttk.Frame):
         self.master.minsize(900,500)
         self.master.rowconfigure(0, weight=1)
         self.master.columnconfigure(0, weight=1)
-        self.rowconfigure(0, weight=1)
-        self.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
+        self.columnconfigure(1, weight=1)
+        self.grid_menu()
         self.gridDBSelect()
         self.gridEditArea()
         self.gridButtons()
-        self.grid(sticky=tk.N+tk.S+tk.E+tk.W)
+        self.grid(row=0, column=0, sticky=tk.N+tk.S+tk.E+tk.W)
         self.master.protocol("WM_DELETE_WINDOW", self.on_close)
+    def grid_menu(self):
+        top = self.winfo_toplevel()
+        self.menuBar = tk.Menu(top)
+        top['menu'] = self.menuBar
+        self.subMenu = tk.Menu(self.menuBar)
+        self.menuBar.add_cascade(label='File', menu=self.subMenu)
+        self.subMenu.add_command(label='New')
+        self.subMenu.add_command(label='Open')
+        self.subMenu.add_command(label='Save')
         
     def gridDBSelect(self):
         self.side_bar = ttk.Frame(self, borderwidth=1, relief=tk.GROOVE)
@@ -40,7 +50,7 @@ class GUI(ttk.Frame):
             self.db_objects_treeview.insert("", 1, text=table)
         
         self.db_objects_treeview.grid(row=1, column=0, columnspan=2, sticky=tk.N+tk.S, padx = self.x_pad, pady = self.y_pad)
-        self.side_bar.grid(row=0, column=0, rowspan=1, sticky=tk.N+tk.S+tk.W, padx = self.x_pad, pady = self.y_pad)
+        self.side_bar.grid(row=1, column=0, sticky=tk.N+tk.S+tk.W, padx = self.x_pad, pady = self.y_pad)
         
     def open_config(self):
         config = ConfigParser.ConfigParser()
@@ -55,11 +65,11 @@ class GUI(ttk.Frame):
         
     def gridEditArea(self):
         self.ddl_text = tk.Text(self, relief=tk.GROOVE)
-        self.ddl_text.grid(row=0, column=1, sticky=tk.N+tk.S+tk.W+tk.E, padx = self.x_pad, pady = self.y_pad)
+        self.ddl_text.grid(row=1, column=1, sticky=tk.N+tk.S+tk.W+tk.E, padx = self.x_pad, pady = self.y_pad)
         
     def gridButtons(self):
         self.quit = ttk.Button(self, text='Quit', command=self.on_close)
-        self.quit.grid(row=1, column=0, sticky=tk.N+tk.S+tk.E+tk.W)
+        self.quit.grid(row=2, column=0, sticky=tk.N+tk.S+tk.E+tk.W)
         
     def on_tree_click(self, event):
         clicked_item = self.db_objects_treeview.focus()
