@@ -9,7 +9,7 @@ class App:
         
     def get_ddl(self, table_name):
         table = sql.schema.CreateTable(sql.Table(table_name, self.metadata, autoload=True, autoload_with=self.engine ), bind=self.engine)
-        print self.metadata
+        return table
         
     def get_table_objects(self):
         insp = sql.inspect(self.engine)
